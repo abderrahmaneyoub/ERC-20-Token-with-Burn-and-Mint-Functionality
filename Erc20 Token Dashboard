@@ -1,0 +1,81 @@
+import React, { useState, useEffect } from "react";
+import { ethers } from "ethers";
+import { Button, Card, CardContent } from "@/components/ui/card";
+
+// Replace with your deployed contract's ABI and address
+import tokenABI from "./MyTokenABI.json";
+const CONTRACT_ADDRESS = "0xYourContractAddressHere";
+
+export default function TokenDashboard() {
+  const [provider, setProvider] = useState(null);
+  const [signer, setSigner] = useState(null);
+  const [contract, setContract] = useState(null);
+  const [address, setAddress] = useState("");
+  const [balance, setBalance] = useState("0");
+  const [amount, setAmount] = useState("");
+
+  useEffect(() => {
+    const init = async () => {
+      if (window.ethereum) {
+        const prov = new ethers.BrowserProvider(window.ethereum);
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        const signer = await prov.getSigner();
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, tokenABI, signer);
+
+        setProvider(prov);
+        setSigner(signer);
+        setContract(contract);
+
+        const userAddress = await signer.getAddress();
+        setAddress(userAddress);
+
+        const balance = await contract.balanceOf(userAddress);
+        setBalance(ethers.formatUnits(balance, 18));
+      }
+    };
+    init();
+  }, []);
+
+  const refreshBalance = async () => {
+    const balance = await contract.balanceOf(address);
+    setBalance(ethers.formatUnits(balance, 18));
+  };
+
+  const handleMint = async () => {
+    const tx = await contract.mint(address, ethers.parseUnits(amount, 18));
+    await tx.wait();
+    refreshBalance();
+  };
+
+  const handleBurn = async () => {
+    const tx = await contract.burn(ethers.parseUnits(amount, 18));
+    await tx.wait();
+    refreshBalance();
+  };
+
+  return (
+    <div className="min-h-screen p-8 bg-gray-50">
+      <h1 className="text-2xl font-bold mb-4">CryptoDevToken Dashboard</h1>
+
+      <Card className="max-w-md">
+        <CardContent>
+          <p><strong>Wallet:</strong> {address}</p>
+          <p><strong>Balance:</strong> {balance} CDT</p>
+
+          <input
+            type="text"
+            placeholder="Amount"
+            className="mt-4 p-2 border rounded w-full"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+
+          <div className="mt-4 flex gap-4">
+            <Button onClick={handleMint}>Mint Tokens</Button>
+            <Button onClick={handleBurn} variant="destructive">Burn Tokens</Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
